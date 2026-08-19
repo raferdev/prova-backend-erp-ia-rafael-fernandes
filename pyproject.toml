@@ -32,3 +32,24 @@ testpaths = ["app/tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+# Ruff substitui black + isort + flake8 + autoflake num binario so. O objetivo e tirar
+# formatacao e ordem de import da revisao de codigo, sobrando so regra de negocio.
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort (ordem de imports)
+    "B",   # flake8-bugbear (armadilhas comuns)
+    "UP",  # pyupgrade (sintaxe moderna de Python)
+    "ASYNC",  # flake8-async: pega chamada bloqueante dentro de funcao async
+    "C4",  # comprehensions
+    "SIM", # simplificacoes
+]
+ignore = [
+    "B008",  # chamada de funcao no default do argumento: e o idioma do Depends() do FastAPI
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Os testes precisam definir env vars antes dos imports da aplicacao (ver conftest.py).
+"app/tests/conftest.py" = ["E402"]

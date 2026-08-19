@@ -32,11 +32,21 @@ async def lifespan(app: FastAPI):
     await pool.aclose()
 
 
-app = FastAPI(
-    title="ERP - Pedidos e Estoque",
-    description="Prova tecnica back-end (IA). Modulo de Pedidos e Estoque.",
-    version="0.1.0",
-    lifespan=lifespan,
-)
+app_configs: dict = {
+    "title": "ERP - Pedidos e Estoque",
+    "description": "Prova tecnica back-end (IA). Modulo de Pedidos e Estoque.",
+    "version": "0.1.0",
+    "lifespan": lifespan,
+}
+
+# Documentacao interativa so nos ambientes onde ela e util. Em producao o /docs expoe
+# o mapa completo da API -- rotas, formato dos payloads, campos internos -- que e
+# exatamente o material de reconhecimento de quem procura o que atacar. Lista explicita
+# de ambientes permitidos: um ambiente novo nasce sem docs, nao com.
+SHOW_DOCS_ENVIRONMENTS = {"development", "staging"}
+if settings.app_env not in SHOW_DOCS_ENVIRONMENTS:
+    app_configs["openapi_url"] = None
+
+app = FastAPI(**app_configs)
 
 app.include_router(health.router)

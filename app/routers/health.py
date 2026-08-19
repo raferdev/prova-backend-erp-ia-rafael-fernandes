@@ -39,9 +39,7 @@ async def readiness(
         await session.execute(text("SELECT 1"))
         dependencies.append(DependencyStatus(name="postgres", healthy=True))
     except Exception as exc:  # noqa: BLE001 - queremos reportar qualquer falha
-        dependencies.append(
-            DependencyStatus(name="postgres", healthy=False, detail=str(exc))
-        )
+        dependencies.append(DependencyStatus(name="postgres", healthy=False, detail=str(exc)))
 
     try:
         await redis.ping()

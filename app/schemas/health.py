@@ -2,20 +2,22 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CustomModel
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(CustomModel):
     status: Literal["ok"] = "ok"
     service: str = "erp-pedidos-estoque"
 
 
-class DependencyStatus(BaseModel):
+class DependencyStatus(CustomModel):
     name: str
     healthy: bool
     detail: str | None = None
 
 
-class ReadinessResponse(BaseModel):
+class ReadinessResponse(CustomModel):
     status: Literal["ready", "degraded"]
     dependencies: list[DependencyStatus] = Field(default_factory=list)
