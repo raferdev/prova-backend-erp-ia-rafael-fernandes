@@ -47,6 +47,29 @@ apertar. Para o escopo aqui, não aperta.
 
 ## Como validei
 
-Ainda não. O worker entra na Parte 3 junto com o CRUD, e este ADR passa a ter seção de
-validação quando existir tarefa rodando de verdade. Registro a decisão agora porque ela
-já influenciou o `docker-compose.yml` e a escolha do Redis.
+O worker existe e consome da fila. As tarefas e o desenho delas estão no
+[ADR 0008](0008-worker-de-estoque.md); aqui fica o que valida a escolha do `arq` em si.
+
+Sobe como serviço do Compose e reporta saúde pelo próprio mecanismo do arq
+(`arq --check`), sem eu ter que inventar healthcheck:
+
+```
+SERVICE    STATUS
+worker     Up 22 seconds (healthy)
+```
+
+Processa job enfileirado pela API e roda cron:
+
+```
+14:28:30  eb75bf71:ajustar_estoque ● {'saldo': 108, 'alerta': 'resolvido'}
+14:28:00  cron:verificar_estoque_baixo ● {'abertos': 0, 'resolvidos': 0, 'ja_abertos': 4}
+```
+
+O que confirmou a escolha na prática: as tarefas são `async` e chamam o mesmo
+`EstoqueService` que a API usa, com o mesmo `AsyncSession` e o mesmo cliente Redis. Com RQ
+(síncrono) eu teria dois modelos de concorrência no mesmo repositório e precisaria de uma
+camada de adaptação só para reaproveitar a regra de negócio.
+
+O que continua verdade do lado do custo: a comunidade do `arq` é pequena, e a documentação
+de casos menos comuns é rasa. `run_at_startup` no cron e o formato do `ctx` eu descobri
+lendo o código-fonte, não a documentação.

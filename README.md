@@ -16,16 +16,20 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Sobem três containers na ordem certa, respeitando healthcheck. A API fica em
+Sobem quatro containers na ordem certa, respeitando healthcheck. A API fica em
 `http://localhost:8000`.
 
 ```
 $ docker compose ps --format "table {{.Service}}\t{{.Status}}"
 SERVICE    STATUS
-api        Up About an hour (healthy)
-postgres   Up About an hour (healthy)
-redis      Up About an hour (healthy)
+api        Up 22 seconds (healthy)
+postgres   Up 24 hours (healthy)
+redis      Up 24 hours (healthy)
+worker     Up 22 seconds (healthy)
 ```
+
+O `worker` usa a mesma imagem da API com comando diferente, e reporta saúde pelo mecanismo
+do próprio arq (`arq --check`).
 
 Para conferir que a API alcança as dependências de verdade:
 
@@ -61,10 +65,24 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | `POST /produtos` | cria, invalida as listagens |
 | `PATCH /produtos/{id}` | atualiza parcialmente, invalida detalhe e listagens |
 | `DELETE /produtos/{id}` | remove, invalida detalhe e listagens |
+| `POST /produtos/{id}/estoque` | enfileira uma movimentação, responde 202 com o `job_id` |
+| `GET /produtos/{id}/movimentos` | histórico de movimentação do produto |
+| `GET /alertas` | alertas de estoque baixo, abertos por padrão |
 
 Filtros disponíveis na listagem: `nome` (busca parcial), `preco_min`, `preco_max`,
 `ativo` e `apenas_estoque_baixo`. Este último compara `quantidade_estoque` com o
 `estoque_minimo` de cada produto, porque o ponto de alerta não é um número global.
+
+A movimentação de estoque responde 202 porque vai para a fila. É adequado para o que
+tolera consistência eventual — reposição, ajuste de inventário, devolução. O caminho de
+reserva de pedido, que precisa de resposta síncrona sob lock, não deve usar este endpoint;
+está registrado no [ADR 0008](docs/adr/0008-worker-de-estoque.md).
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"delta":100,"motivo":"reposicao do fornecedor"}' \
+  http://localhost:8000/produtos/$ID/estoque
+```
 
 ### Migrações
 
@@ -146,6 +164,7 @@ validar.
 | [0005](docs/adr/0005-test-client-async.md) | Client de teste async desde o início |
 | [0006](docs/adr/0006-convencoes-de-migration.md) | Fixar convenções antes da primeira migration |
 | [0007](docs/adr/0007-estrategia-de-cache.md) | Cache do catálogo, invalidação por namespace versionado |
+| [0008](docs/adr/0008-worker-de-estoque.md) | Worker de estoque: movimentação idempotente e alerta |
 
 Duas coisas que não têm ADR próprio porque não tiveram alternativa real em disputa:
 
@@ -161,20 +180,25 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 
 ```
 $ uv run pytest -q
-.................................                                        [100%]
-33 passed in 0.14s
+...............................................                          [100%]
+47 passed in 0.42s
 
 $ uv run ruff check .
 All checks passed!
 ```
 
-Nenhum teste precisa de Postgres ou Redis no ar. A política de cache inteira é exercitada
-com um repository dublado e um Redis em memória (`app/tests/dubles.py`), que é o argumento
-prático a favor da camada `repositories/`.
+A suíte tem dois tipos de teste, e a distinção foi aprendida errando.
 
-A ideia é testar regra de negócio isolada, com repository mockado, e manter os testes sem
-dependência de infra sempre que o alvo do teste não for a própria infra. O client é
-`httpx.AsyncClient` sobre `ASGITransport`, falando direto com o app sem abrir porta.
+A maioria roda sem infraestrutura: regra de negócio e política de cache exercitadas com
+repository dublado e Redis em memória (`app/tests/dubles.py`). É rápido e é o argumento
+prático a favor da camada `repositories/`. O client é `httpx.AsyncClient` sobre
+`ASGITransport`, falando direto com o app sem abrir porta.
+
+Já `test_integracao_alerta.py` precisa de Postgres, e existe porque um dublê não pode
+provar garantia de banco. O `ON CONFLICT` do alerta estava escrito de um jeito que o
+Postgres recusa, e o dublê passava tranquilo: ele reimplementa o invariante em Python, ou
+seja, validava a minha intenção em vez do meu SQL. Esses testes pulam sozinhos quando não
+há banco acessível, para não quebrar a suíte rápida.
 
 O `ruff` está configurado com a regra `ASYNC`, que pega chamada bloqueante dentro de rota
 `async`. É a armadilha número um do FastAPI e não existe equivalente no Node, então
@@ -185,18 +209,19 @@ prefiro que o linter cuide disso e não a minha memória.
 | Parte | Situação |
 |---|---|
 | Fundação: repo, esqueleto, Docker, health | pronto |
-| Parte 3 — CRUD Produtos/Estoque | CRUD, validação, JWT, filtros, paginação e cache prontos; falta o worker |
-| Parte 4 — Docker | Compose, Alembic e seed prontos; falta o serviço `worker` |
+| Parte 3 — CRUD Produtos/Estoque | pronto: CRUD, validação, JWT, filtros, paginação, cache e worker |
+| Parte 4 — Docker | pronto: quatro serviços com healthcheck, Alembic e seed |
 | Parte 2 — Assíncrono (Q4) | não iniciado |
 | Parte 5 — Desafio de IA (Q8 e Q9) | não iniciado |
 | Parte 1 — Arquitetura (teórica) | não iniciado |
 | Parte 6 — Perfil | não iniciado |
 | Parte 7 — Portfólio | não iniciado |
 
-O que falta na Parte 3 é o worker de fila. Ele já tem lugar reservado: a invalidação de
-cache mora em `app/core/cache.py` justamente para o worker chamar sem passar por router,
-e o `arq` foi escolhido no [ADR 0003](docs/adr/0003-fila-com-arq.md), que segue sem seção
-de validação até a tarefa existir de verdade.
+O que ficou de fora por escolha, e não por falta de tempo: o lock distribuído para oversell
+na reserva de pedido. Ele pertence ao módulo de Pedidos, não ao de Estoque, e está anotado
+como limite explícito no [ADR 0008](docs/adr/0008-worker-de-estoque.md). O `UPDATE` atômico
+que uso na movimentação resolve perda de atualização, mas não substitui o lock quando a
+decisão de negócio depende de ler o saldo antes de decidir.
 
 ## Uso de IA
 
@@ -226,11 +251,22 @@ Uma coisa que mudei de ideia no meio do caminho está registrada no
 que é o que a documentação do FastAPI mostra, e troquei depois de entender que isso
 quebraria os testes de integração mais adiante.
 
-Dois defeitos que apareceram na implementação do cache e que valem ser ditos, porque
-nenhum dos dois quebrava nada de forma visível. O primeiro está descrito no
-[ADR 0007](docs/adr/0007-estrategia-de-cache.md): tratar a chave de versão ausente como
-`1` fazia a primeira invalidação não invalidar nada, já que `INCR` numa chave inexistente
-também resulta em `1`. O segundo é a armadilha do FastAPI de aceitar apenas um modelo
-Pydantic por endpoint como query string — com dois, ele silenciosamente passa a exigir
-query params chamados `filtros` e `paginacao`. Os dois viraram teste
-(`test_produto_cache.py` e `test_produtos_contrato.py`) para não voltarem.
+Quatro defeitos meus aparecem documentados neste repositório, e nenhum deles quebrava algo
+de forma visível — que é justamente por que estão registrados.
+
+Tratar a chave de versão do cache como `1` quando ausente fazia a primeira invalidação não
+invalidar nada, já que `INCR` numa chave inexistente também resulta em `1`
+([ADR 0007](docs/adr/0007-estrategia-de-cache.md)). O FastAPI aceita só um modelo Pydantic
+por endpoint como query string, e com dois ele silenciosamente passa a exigir query params
+chamados `filtros` e `paginacao`. Configurei retentativas no worker antes de perceber que a
+movimentação de estoque não era idempotente, o que faria uma reentrega da fila baixar o
+mesmo estoque duas vezes ([ADR 0008](docs/adr/0008-worker-de-estoque.md)). E escrevi o
+`ON CONFLICT` do alerta com uma expressão do ORM que o Postgres recusa, erro que só
+apareceu quando o worker rodou de verdade.
+
+Esse último é o mais instrutivo, e mudou como eu testo: o dublê de repository passava
+tranquilo porque reimplementa o invariante em Python, ou seja, validava a minha intenção em
+vez do meu SQL. Foi o que me levou a separar testes de integração contra Postgres real dos
+testes rápidos com dublê.
+
+Todos os quatro viraram teste para não voltarem.

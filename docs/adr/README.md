@@ -11,11 +11,12 @@ se `arq` foi escolha ou acidente. O formato também me obriga a declarar o que e
 |---|---|---|---|
 | [0001](0001-estrutura-em-camadas.md) | Organizar por camada, não por domínio | 2026-08-19 | aceito |
 | [0002](0002-persistencia-sqlalchemy-async.md) | SQLAlchemy 2.0 async + Alembic | 2026-08-19 | aceito |
-| [0003](0003-fila-com-arq.md) | `arq` como fila de background | 2026-08-19 | aceito |
+| [0003](0003-fila-com-arq.md) | `arq` como fila de background | 2026-08-19 | aceito, implementado |
 | [0004](0004-liveness-separado-de-readiness.md) | Separar liveness de readiness | 2026-08-19 | aceito |
 | [0005](0005-test-client-async.md) | Client de teste async desde o início | 2026-08-19 | aceito, substitui decisão anterior |
 | [0006](0006-convencoes-de-migration.md) | Fixar convenções antes da 1ª migration | 2026-08-19 | aceito |
 | [0007](0007-estrategia-de-cache.md) | Cache do catálogo e invalidação por versão | 2026-08-20 | aceito, implementado |
+| [0008](0008-worker-de-estoque.md) | Worker de estoque: movimentação e alerta | 2026-08-20 | aceito, implementado |
 
 ## Formato
 
