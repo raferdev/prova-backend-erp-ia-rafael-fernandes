@@ -110,6 +110,7 @@ validar.
 | [0004](docs/adr/0004-liveness-separado-de-readiness.md) | Separar liveness de readiness |
 | [0005](docs/adr/0005-test-client-async.md) | Client de teste async desde o início |
 | [0006](docs/adr/0006-convencoes-de-migration.md) | Fixar convenções antes da primeira migration |
+| [0007](docs/adr/0007-estrategia-de-cache.md) | Cache do catálogo, invalidação por namespace versionado |
 
 Duas coisas que não têm ADR próprio porque não tiveram alternativa real em disputa:
 
@@ -153,8 +154,10 @@ prefiro que o linter cuide disso e não a minha memória.
 | Parte 6 — Perfil | não iniciado |
 | Parte 7 — Portfólio | não iniciado |
 
-Em aberto: a estratégia de invalidação de cache ainda não está decidida, e quero fechá-la
-antes de escrever o CRUD, não depois. Vira o ADR 0007.
+A estratégia de cache está decidida e registrada no
+[ADR 0007](docs/adr/0007-estrategia-de-cache.md), antes de escrever o CRUD e não depois.
+Falta implementá-la, e o próprio ADR lista as seis asserções que quero ver passando para
+considerá-la validada.
 
 ## Uso de IA
 
