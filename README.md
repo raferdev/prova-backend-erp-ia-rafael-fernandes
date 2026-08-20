@@ -12,6 +12,17 @@ docker compose exec api python -m app.core.seed
 
 Interface em `http://localhost:5173`, API em `http://localhost:8000`, Swagger em `/docs`.
 
+## TL;DR — Destaques da implementação
+
+- **API completa de Produtos e Estoque** com FastAPI, Pydantic, PostgreSQL, SQLAlchemy 2.0 async, Alembic e JWT.
+- **Redis** para cache com invalidação por namespace versionado e TTL como fallback.
+- **Worker com `arq`** para movimentação idempotente de estoque e alertas assíncronos.
+- **3 integrações em paralelo** com `asyncio.gather`, timeout individual, retry e graceful degradation.
+- **Consulta em linguagem natural sem LLM**, convertendo perguntas em filtros estruturados reutilizados pela API.
+- **Servidor MCP funcional**, com ferramentas, validação, permissões e confirmação em duas etapas para ações de escrita.
+- **Docker Compose** com API, React/Vite, PostgreSQL, Redis e worker, incluindo healthchecks.
+- **131 testes backend + 18 testes E2E**, com cobertura de 90% e CI utilizando infraestrutura real.
+
 ## Índice
 
 **Respostas:** [Q1 arquitetura](#q1--arquitetura-de-microsserviços) ·
@@ -181,7 +192,7 @@ sem virar três times olhando o próprio gráfico e concluindo que o problema é
 Prioridade num ERP, por impacto financeiro e não por volume:
 
 1. taxa de erro na criação de pedidos, que é receita não realizada em tempo real;
-2. **sagas incompletas**. Estoque reservado sem pagamento é o alerta que acorda alguém;
+2. **sagas incompletas**. Estoque reservado sem pagamento é um alerta;
 3. consistência de estoque contra a soma das movimentações. O livro `movimento_estoque` existe
    para essa conferência ser possível;
 4. latência do checkout em p95 e p99;
@@ -470,7 +481,7 @@ desacoplar.
 **Confirmação em duas etapas para ação destrutiva.** Ferramenta de escrita não executa na primeira
 chamada. Devolve preview com valores resolvidos ("Baixar 3 unidades de Cabo HDMI 2m, saldo 120
 ficará 117") e um token de dois minutos, de uso único. O problema real não é modelo malicioso, é
-modelo confiante: uma frase ambígua vira ação irreversível sem ninguém ter visto o que ela
+uma frase ambígua vira ação irreversível sem ninguém ter visto o que ela
 significava. O preview é onde a alucinação morre, porque quem lê vê o nome errado antes de
 confirmar.
 
@@ -509,8 +520,7 @@ funcionar.
 
 ## Q10 — A frente em Go
 
-**Reajo bem, e não é boa vontade.** Go é adequado ao cenário. Goroutines custam ordens de magnitude
-menos que threads do sistema, binário único simplifica deploy e derruba cold start, e a ausência de
+**Reajo bem, e não é boa vontade.** Go é adequado ao cenário. Goroutines têm overhead menor e são gerenciadas pelo runtime do Go, permitindo lidar com grande número de tarefas concorrentes de forma eficiente, binário único simplifica deploy e derruba cold start, e a ausência de
 GIL dá paralelismo real em CPU, que é exatamente a limitação que registrei no
 [ADR 0003](docs/adr/0003-fila-com-arq.md). Discutir a escolha aqui seria discutir preferência
 minha, não a necessidade do sistema.
@@ -636,19 +646,22 @@ modelo para interpretar, código para executar.
 
 ## Uso de IA
 
-Meu histórico é Node, NestJS e TypeScript. Python não é minha stack principal, e prefiro dizer isso
-direto.
-
-**A arquitetura e as decisões são minhas.** O fluxo `router → service → repository` e a
-justificativa de cada escolha vêm de NestJS, onde o modelo é o mesmo. O que eu não tinha era o mapa
-do ecossistema Python, e é aí que usei IA: qual biblioteca ocupa o lugar do TypeORM, qual é o
-BullMQ daqui, qual é a pegadinha idiomática de cada uma.
+Meu histórico é Node, NestJS e TypeScript. Python não é minha stack principal. 
+Usei IA de forma intensiva durante o desenvolvimento, tanto para explorar o ecossistema Python
+quanto para discutir alternativas, gerar rascunhos e melhorar a documentação. As decisões finais foram
+tomadas por mim, com implementação, testes e revisão manual.
 
 **Usei IA para verificar referências, não para aceitá-las.** Ao avaliar o template oficial do
 FastAPI e o `fastapi-best-practices`, o que mudou minha conclusão foi listar a árvore real dos
 repositórios em vez de ler o resumo. O template oficial não tem Redis, fila nem worker, e a
 recomendação de organizar por domínio é condicionada a monolitos. Foi assim que SQLModel e Celery
 foram descartados, mesmo aparecendo como opções óbvias.
+
+**A arquitetura e as decisões são minhas.** O fluxo `router → service → repository` e a
+justificativa de cada escolha vêm de NestJS, onde o modelo é o mesmo. O que eu não tinha era o mapa
+do ecossistema Python, e é aí que usei IA: qual biblioteca ocupa o lugar do TypeORM, qual é o
+BullMQ daqui, qual é a pegadinha idiomática de cada uma.
+
 
 **Nada entrou sem rodar.** As saídas de comando neste README e nos ADRs são reais, não
 ilustrativas. Onde não validei, está escrito que não validei.
