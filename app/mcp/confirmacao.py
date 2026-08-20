@@ -1,6 +1,6 @@
 """Confirmação em duas etapas para ações destrutivas.
 
-Implementa em código o guardrail que descrevi no `docs/parte-5-agente-ia.md`: ferramenta de
+Implementa em código o guardrail que descrevi na Q9 do README: ferramenta de
 escrita **não executa na primeira chamada**. Ela devolve um preview com valores resolvidos
 e um token de validade curta; a execução só acontece com esse token.
 

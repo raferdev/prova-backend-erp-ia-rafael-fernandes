@@ -11,7 +11,7 @@ outro lado. Por isso implementar isto não viola a regra do enunciado.
 
 ## Por que existe a subclasse `ServidorERP`
 
-No `docs/parte-5-agente-ia.md` eu argumentei que todo schema deve ter
+Na resposta da Q9 (README) eu argumentei que todo schema deve ter
 `additionalProperties: false`, para um argumento alucinado não passar em silêncio.
 Implementando, descobri que a coisa é pior do que eu tinha escrito: o SDK **aceita e
 descarta** o argumento desconhecido, e devolve sucesso.

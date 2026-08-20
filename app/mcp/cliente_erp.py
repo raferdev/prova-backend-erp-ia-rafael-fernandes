@@ -1,6 +1,6 @@
 """Cliente HTTP do ERP usado pelo servidor MCP.
 
-A decisão que este arquivo materializa está no `docs/parte-5-agente-ia.md`: o servidor MCP
+A decisão que este arquivo materializa está na Q9 do README: o servidor MCP
 **fala com a API por HTTP e JWT**, e não com o banco direto.
 
 Acessar o banco daqui seria mais simples e mais rápido, e erraria em três frentes ao mesmo

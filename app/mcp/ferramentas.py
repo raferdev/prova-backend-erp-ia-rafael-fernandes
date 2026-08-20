@@ -4,7 +4,7 @@ Separado do transporte (`servidor.py`) de propósito: assim dá para testar comp
 chamando função, sem levantar processo nem falar stdio. Os schemas ficam lá, derivados das
 assinaturas; aqui fica o que acontece quando a ferramenta é chamada.
 
-Dois princípios do `docs/parte-5-agente-ia.md` moram neste arquivo:
+Dois princípios da Q9 do README moram neste arquivo:
 
 - Ferramenta de escrita nunca executa direto: devolve preview e exige confirmação.
 - Falha nunca vira resultado vazio. Um modelo que recebe lista vazia conclui que não há
