@@ -86,6 +86,41 @@ Cada uma dessas está registrada num ADR, com a saída do comando que usei para 
 esse rastro que eu levaria para Go: não a certeza de já saber, mas o hábito de conferir e
 deixar registrado o que descobri.
 
+## E se eu discordasse? Como eu argumentaria
+
+Não discordo neste caso, mas a pergunta merece resposta séria, porque saber *como* eu
+discordaria diz mais sobre trabalhar comigo do que a concordância.
+
+Eu não argumentaria por preferência. Argumentaria por **número e por custo total**, nesta
+ordem:
+
+**Primeiro, mostraria que o gargalo é outro.** Antes de trocar de linguagem eu levaria um
+perfilamento do serviço atual. Se o tempo está indo em espera de banco, em serialização
+JSON ou numa query sem índice, trocar Python por Go melhora a fatia errada — e a fatia
+certa continua lá, agora num sistema com duas linguagens. Esse é o argumento mais forte que
+existe contra uma reescrita, e ele é empírico, não retórico.
+
+**Depois, mostraria o caminho mais barato até o mesmo número.** Se o alvo for throughput de
+ingestão, há degraus antes da reescrita: `uvloop`, `orjson` no lugar do serializador padrão,
+processamento em lote em vez de linha a linha, `COPY` do Postgres em vez de `INSERT`
+repetido, e escalar horizontalmente os workers. Se algum desses degraus chega no alvo, ele
+custa dias e não meses, e não cria uma stack nova para manter.
+
+**Se ainda faltasse, eu proporia alternativas com o mesmo ganho e menos custo de troca.**
+Rust via extensão PyO3 quando o gargalo é uma função quente e bem delimitada — mantém o
+serviço em Python e leva só o pedaço caro. Ou Go mesmo, mas num serviço pequeno e isolado
+em vez de na frente inteira.
+
+**E fecharia com o custo que ninguém coloca na conta:** dois pipelines, dois conjuntos de
+dependências para atualizar, plantão que precisa saber as duas, e contratação que fica mais
+estreita. Isso não decide sozinho, mas precisa estar na mesa.
+
+Duas coisas eu não faria. Não argumentaria "Python é rápido o suficiente" sem medição — é
+opinião com cara de argumento. E não transformaria a discussão em referendo: eu apresentaria
+os dados, ouviria o contexto que talvez eu não tenha (talvez a empresa já queira Go por
+contratação, ou já tenha outro time nisso), e se a decisão fosse mantida, entraria inteiro.
+Discordar e entregar mal é o pior resultado possível.
+
 ## O que eu perguntaria antes de começar
 
 Abertura não é aceitar sem pensar. Eu levantaria quatro pontos, e nenhum deles é objeção:
