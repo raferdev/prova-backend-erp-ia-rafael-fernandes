@@ -22,16 +22,17 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Sobem quatro containers na ordem certa, respeitando healthcheck. A API fica em
-`http://localhost:8000`.
+Sobem cinco containers na ordem certa, respeitando healthcheck. A interface fica em
+`http://localhost:5173` e a API em `http://localhost:8000`.
 
 ```
 $ docker compose ps --format "table {{.Service}}\t{{.Status}}"
 SERVICE    STATUS
-api        Up 22 seconds (healthy)
-postgres   Up 24 hours (healthy)
-redis      Up 24 hours (healthy)
-worker     Up 22 seconds (healthy)
+api        Up 19 seconds (healthy)
+frontend   Up 14 seconds (healthy)
+postgres   Up 26 hours (healthy)
+redis      Up 26 hours (healthy)
+worker     Up About a minute (healthy)
 ```
 
 O `worker` usa a mesma imagem da API com comando diferente, e reporta saúde pelo mecanismo
@@ -132,6 +133,53 @@ Para plugar num cliente MCP, aponte para o módulo:
 }
 ```
 
+### Interface
+
+Front em React + Vite, em `http://localhost:5173`. Três telas, escolhidas para mostrar o
+que o back-end tem de menos óbvio, e não para ser um painel administrativo completo — o
+enunciado é claro que o foco é back-end.
+
+| Tela | O que ela demonstra |
+|---|---|
+| Produtos | filtros, paginação, e o "estoque baixo" comparando com o mínimo de cada produto |
+| Perguntar | o parser determinístico, mostrando a interpretação e **recusando pergunta ambígua** |
+| Alertas | o que o worker de fila abriu, com a quantidade do momento do alerta |
+
+A tela de perguntar é a mais interessante: ela exibe a interpretação em português e os
+filtros que de fato rodaram, para o número ser conferível. E ao perguntar "produtos abaixo
+de 10" ela mostra a recusa com as duas leituras possíveis, em vez de chutar uma.
+
+**O front nunca sabe o endereço da API.** Ele chama `/api/...` relativo e um proxy resolve:
+Vite no desenvolvimento, nginx no Compose. A alternativa seria liberar CORS e embutir a URL
+no build, o que troca uma linha de configuração por duas fontes de erro — origem liberada
+errada em produção, e rebuild necessário quando o endereço muda.
+
+Desenvolvimento com recarga automática:
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+### Testes de ponta a ponta
+
+Playwright contra a stack de verdade, sem mock de rede:
+
+```
+$ cd frontend && npx playwright test
+18 passed (7.3s)
+```
+
+Rodando contra o Compose (o build de produção servido pelo nginx, que é o artefato que
+seria publicado):
+
+```bash
+E2E_BASE_URL=http://localhost:5173 npx playwright test
+```
+
+Metade dos testes de consulta é sobre o que a aplicação **recusa**: pergunta ambígua,
+pergunta fora do domínio e entrada hostil. Há também um teste garantindo que a mensagem de
+erro do login não revela se o e-mail existe.
+
 ### Migrações
 
 O schema é responsabilidade do Alembic. A aplicação não cria tabelas no boot, para dev e
@@ -184,6 +232,7 @@ app/
   mcp/           # servidor MCP: expoe ferramentas do ERP a um agente
   tests/         # espelha a estrutura acima
 main.py          # monta a aplicação e registra os routers
+frontend/        # React + Vite, e os testes Playwright em frontend/e2e/
 docs/adr/        # registro de decisões
 ```
 
@@ -255,7 +304,8 @@ TOTAL   2163   222   90%
 ```
 
 A CI roda isso em todo pull request, com Postgres e Redis de verdade como `services`, mais
-o build da imagem e um `docker compose up` que autentica e chama uma rota protegida. O
+checagem de tipos do front, build das duas imagens e um `docker compose up` que autentica,
+chama uma rota protegida e roda os 18 testes Playwright contra o build de produção. O
 workflow está em [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 A suíte tem dois tipos de teste, e a distinção foi aprendida errando.
