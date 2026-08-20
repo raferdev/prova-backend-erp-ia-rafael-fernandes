@@ -190,7 +190,7 @@ docker compose exec api alembic upgrade head
 docker compose exec api python -m app.core.seed
 ```
 
-O seed é idempotente: rodar duas vezes não duplica nada. Ele cria cinco produtos e um
+O seed é idempotente: rodar duas vezes não duplica nada. Ele cria nove produtos e um
 usuário de desenvolvimento (`admin@erp.local` / `admin123`, sobrescrevíveis por
 `SEED_USUARIO_EMAIL` e `SEED_USUARIO_SENHA`). Não é usuário de produção.
 
@@ -297,7 +297,7 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 
 ```
 $ uv run pytest -q
-126 passed in 9.63s
+129 passed in 9.58s
 
 $ uv run pytest --cov=app --cov=main --cov-report=term | tail -1
 TOTAL   2163   222   90%
