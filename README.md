@@ -10,7 +10,8 @@ Projeto em andamento. O que já está pronto e o que falta está em
 O desafio de IA tem duas metades: a consulta em linguagem natural está implementada em
 `POST /consultas/produtos` (parser determinístico, sem LLM em runtime), e o design de
 agente com tool calling, MCP e guardrails está em
-[`docs/parte-5-agente-ia.md`](docs/parte-5-agente-ia.md).
+[`docs/parte-5-agente-ia.md`](docs/parte-5-agente-ia.md). O servidor MCP descrito nesse
+documento também foi implementado — ver [Servidor MCP](#servidor-mcp).
 
 ## Como rodar
 
@@ -91,6 +92,46 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
   http://localhost:8000/produtos/$ID/estoque
 ```
 
+### Servidor MCP
+
+Expõe as ferramentas do ERP a um agente. Não chama LLM nenhum: quem chama modelo é o
+cliente do outro lado, então isto não esbarra na restrição do enunciado.
+
+```bash
+uv run python -m app.mcp.servidor
+```
+
+| Ferramenta | Classe |
+|---|---|
+| `consultar_estoque` | leitura |
+| `consultar_alertas` | leitura |
+| `perguntar_sobre_catalogo` | leitura, usa o parser determinístico |
+| `preparar_ajuste_estoque` | escrita, devolve preview e não altera nada |
+| `confirmar_ajuste_estoque` | escrita, executa o preview confirmado |
+
+Ele fala com a API por HTTP e JWT, e não com o banco direto. É o que faz o agente herdar
+exatamente as permissões do token que carrega, em vez de virar um usuário robô com acesso
+total. O raciocínio completo está no [ADR 0010](docs/adr/0010-servidor-mcp.md).
+
+Ação destrutiva acontece em duas etapas: `preparar` devolve um preview com valores
+resolvidos ("Baixar 3 unidades de Cabo HDMI 2m, saldo 120 ficará 117") e um token de dois
+minutos; `confirmar` executa, e o token vale uma única vez. O preview é onde a alucinação
+morre — se o modelo errou o produto, quem lê vê o nome errado antes de confirmar.
+
+Para plugar num cliente MCP, aponte para o módulo:
+
+```json
+{
+  "mcpServers": {
+    "erp": {
+      "command": "uv",
+      "args": ["run", "--directory", "/caminho/para/o/repo", "python", "-m", "app.mcp.servidor"],
+      "env": { "ERP_API_URL": "http://localhost:8000" }
+    }
+  }
+}
+```
+
 ### Migrações
 
 O schema é responsabilidade do Alembic. A aplicação não cria tabelas no boot, para dev e
@@ -140,6 +181,7 @@ app/
   core/          # config, conexão de banco, Redis, segurança/JWT
   workers/       # tarefas de fila
   integracoes/   # gateways para outros modulos do ERP (Clientes, Financeiro, Logistica)
+  mcp/           # servidor MCP: expoe ferramentas do ERP a um agente
   tests/         # espelha a estrutura acima
 main.py          # monta a aplicação e registra os routers
 docs/adr/        # registro de decisões
@@ -174,6 +216,7 @@ validar.
 | [0007](docs/adr/0007-estrategia-de-cache.md) | Cache do catálogo, invalidação por namespace versionado |
 | [0008](docs/adr/0008-worker-de-estoque.md) | Worker de estoque: movimentação idempotente e alerta |
 | [0009](docs/adr/0009-consulta-paralela-degradacao.md) | Consulta paralela com degradação graciosa |
+| [0010](docs/adr/0010-servidor-mcp.md) | Servidor MCP funcional sobre a API do ERP |
 
 Duas coisas que não têm ADR próprio porque não tiveram alternativa real em disputa:
 
@@ -190,7 +233,7 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 ```
 $ uv run pytest -q
 ........................................................................ [100%]
-80 passed in 5.00s
+100 passed in 5.52s
 
 $ uv run ruff check .
 All checks passed!
@@ -221,7 +264,7 @@ prefiro que o linter cuide disso e não a minha memória.
 | Parte 3 — CRUD Produtos/Estoque | pronto: CRUD, validação, JWT, filtros, paginação, cache e worker |
 | Parte 4 — Docker | pronto: quatro serviços com healthcheck, Alembic e seed |
 | Parte 2 — Assíncrono (Q4) | pronto: `asyncio.gather`, timeout por fonte, orçamento total e retry |
-| Parte 5 — Desafio de IA (Q8 e Q9) | pronto: parser determinístico + [design do agente](docs/parte-5-agente-ia.md) |
+| Parte 5 — Desafio de IA (Q8 e Q9) | pronto: parser determinístico, [design do agente](docs/parte-5-agente-ia.md) e servidor MCP funcional |
 | Parte 1 — Arquitetura (teórica) | não iniciado |
 | Parte 6 — Perfil | não iniciado |
 | Parte 7 — Portfólio | não iniciado |

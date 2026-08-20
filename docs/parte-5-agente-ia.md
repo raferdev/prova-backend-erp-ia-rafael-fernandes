@@ -4,8 +4,14 @@ Q8 (a prática) está implementada: `POST /consultas/produtos`, parser determin�
 `app/services/parser_consulta.py`. Este documento é a Q9, o design.
 
 Uma restrição atravessa tudo o que segue: **nenhuma chamada a LLM de terceiro em runtime**,
-conforme o enunciado. O que descrevo aqui é como eu conectaria um agente ao ERP, não uma
-integração que este repositório executa.
+conforme o enunciado.
+
+O enunciado pede a Q9 como design. Depois de escrevê-la, implementei também o servidor MCP
+descrito na seção 2 — ele expõe ferramentas e não chama modelo nenhum, então não esbarra na
+restrição. Roda com `python -m app.mcp.servidor` e está no [ADR 0010](adr/0010-servidor-mcp.md).
+
+Manter as duas coisas juntas rendeu o que eu não teria obtido só escrevendo: **a
+implementação contradisse o documento em um ponto**, e a correção está marcada na seção 1.
 
 ---
 
@@ -45,6 +51,18 @@ controle de acesso que este projeto tem seriam contornados de uma vez.
 `additionalProperties: false` não é detalhe. Sem isso, um argumento alucinado
 (`"desconto_maximo": 30`) passaria silenciosamente e viraria filtro ignorado — a resposta
 sairia com cara de correta e escopo diferente do pedido.
+
+> **Correção depois de implementar.** Eu escrevi o parágrafo acima supondo que declarar
+> `additionalProperties: false` resolvia. Ao construir o servidor MCP de verdade, descobri
+> que não resolve: o SDK **aceita o argumento desconhecido, descarta em silêncio e devolve
+> sucesso**. Verificado na mão — `consultar(nome="cabo", desconto_maximo=30)` retorna
+> `is_error=False` e o `desconto_maximo` evapora.
+>
+> A lição corrige o princípio: o schema é declaração de intenção **para o modelo**, e quem
+> protege é o servidor. Em `app/mcp/servidor.py` a validação é feita antes do despacho, e a
+> ferramenta recusa a chamada em vez de executá-la com escopo diferente do pedido. Deixo o
+> parágrafo original de pé porque o raciocínio continua valendo; o que mudou foi onde a
+> garantia mora.
 
 O schema é praticamente o `FiltrosProduto` que a API REST já usa. É de propósito: a
 ferramenta não é uma porta nova para o dado, é a porta existente descrita em JSON Schema.

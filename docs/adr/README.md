@@ -18,6 +18,7 @@ se `arq` foi escolha ou acidente. O formato também me obriga a declarar o que e
 | [0007](0007-estrategia-de-cache.md) | Cache do catálogo e invalidação por versão | 2026-08-20 | aceito, implementado |
 | [0008](0008-worker-de-estoque.md) | Worker de estoque: movimentação e alerta | 2026-08-20 | aceito, implementado |
 | [0009](0009-consulta-paralela-degradacao.md) | Consulta paralela com degradação graciosa | 2026-08-20 | aceito, implementado |
+| [0010](0010-servidor-mcp.md) | Servidor MCP funcional sobre a API do ERP | 2026-08-20 | aceito, implementado |
 
 ## Formato
 
