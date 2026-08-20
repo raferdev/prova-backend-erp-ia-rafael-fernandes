@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.models.alerta import AlertaEstoque, StatusAlerta
 from app.models.produto import Produto
 from app.repositories.alerta import AlertaRepository
+from app.tests.test_integracao_produto_repo import sem_banco
 
 DSN = (
     f"postgresql+asyncpg://{os.getenv('PG_USER', 'erp')}:"
@@ -41,7 +42,7 @@ async def session():
             pass
     except Exception:  # noqa: BLE001
         await engine.dispose()
-        pytest.skip("Postgres indisponivel: rode `docker compose up -d postgres`")
+        sem_banco()
 
     fabrica = async_sessionmaker(engine, expire_on_commit=False)
     async with fabrica() as sessao:

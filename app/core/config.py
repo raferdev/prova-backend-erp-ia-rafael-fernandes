@@ -7,7 +7,12 @@ variavel obrigatoria a aplicacao nao sobe, em vez de quebrar no primeiro request
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# HMAC-SHA256 usa chave de 256 bits. Segredo menor que isso reduz o custo de forjar um
+# token, e a RFC 7518 (secao 3.2) exige chave de pelo menos o tamanho do hash.
+TAMANHO_MINIMO_JWT_SECRET = 32
 
 
 class Settings(BaseSettings):
@@ -31,6 +36,26 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
 
     cache_ttl_seconds: int = 60
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def segredo_precisa_ser_forte(cls, valor: str) -> str:
+        """Recusa segredo curto no boot.
+
+        Descobri isso rodando os testes: o PyJWT emite `InsecureKeyLengthWarning` para
+        chave abaixo de 32 bytes, e tanto o segredo de teste quanto o do `.env.example`
+        estavam abaixo. Aviso em log e o tipo de coisa que ninguem le; recusar o boot,
+        nao.
+
+        Gere um com:  python -c "import secrets; print(secrets.token_urlsafe(48))"
+        """
+        if len(valor.encode()) < TAMANHO_MINIMO_JWT_SECRET:
+            raise ValueError(
+                f"JWT_SECRET precisa de ao menos {TAMANHO_MINIMO_JWT_SECRET} bytes "
+                f"(recebeu {len(valor.encode())}). Gere com "
+                'python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        return valor
 
     @property
     def database_url(self) -> str:

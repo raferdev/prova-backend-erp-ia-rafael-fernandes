@@ -28,7 +28,16 @@ class ProdutoRepository:
             consulta = consulta.where(Produto.preco <= filtros.preco_max)
         if filtros.apenas_estoque_baixo:
             # Comparacao entre colunas: o limiar e por produto, nao um numero fixo.
-            consulta = consulta.where(Produto.quantidade_estoque <= Produto.estoque_minimo)
+            #
+            # O `ativo` junto e deliberado. "Estoque baixo" aqui significa "precisa
+            # repor", e produto descontinuado nao precisa. Sem isto, a varredura do worker
+            # (que ja filtrava ativo) e o filtro da API davam respostas diferentes para a
+            # mesma pergunta -- divergencia encontrada por teste de integracao, nao por
+            # leitura. Quem quiser inativos com pouco saldo usa `estoque_max` + `ativo`.
+            consulta = consulta.where(
+                Produto.quantidade_estoque <= Produto.estoque_minimo,
+                Produto.ativo.is_(True),
+            )
         if filtros.estoque_min is not None:
             consulta = consulta.where(Produto.quantidade_estoque >= filtros.estoque_min)
         if filtros.estoque_max is not None:
@@ -105,19 +114,15 @@ class ProdutoRepository:
     async def listar_com_estoque_baixo(self, limite: int = 500) -> list[Produto]:
         """Produtos em que o saldo caiu ate o limiar do proprio produto.
 
-        Usada pela varredura periodica. Com catalogo grande isto vira varredura paginada
-        ou incremental por `atualizado_em`; no escopo atual, uma query so resolve.
+        Usada pela varredura periodica. Reaproveita `_aplicar_filtros` de proposito: ter
+        duas queries para a mesma pergunta e como as definicoes divergem, e foi assim que
+        o worker passou a excluir inativos enquanto a API os incluia.
+
+        Com catalogo grande isto vira varredura paginada ou incremental por
+        `atualizado_em`; no escopo atual, uma query so resolve.
         """
-        consulta = (
-            select(Produto)
-            .where(
-                Produto.ativo.is_(True),
-                Produto.quantidade_estoque <= Produto.estoque_minimo,
-            )
-            .order_by(Produto.nome)
-            .limit(limite)
-        )
-        resultado = await self.session.execute(consulta)
+        consulta = self._aplicar_filtros(select(Produto), FiltrosProduto(apenas_estoque_baixo=True))
+        resultado = await self.session.execute(consulta.order_by(Produto.nome).limit(limite))
         return list(resultado.scalars().all())
 
     async def listar_com_estoque_saudavel(self, limite: int = 500) -> list[Produto]:

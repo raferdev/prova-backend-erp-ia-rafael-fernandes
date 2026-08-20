@@ -18,7 +18,8 @@ os.environ.setdefault("POSTGRES_PASSWORD", "test")
 os.environ.setdefault("POSTGRES_DB", "test")
 os.environ.setdefault("POSTGRES_HOST", "localhost")
 os.environ.setdefault("REDIS_HOST", "localhost")
-os.environ.setdefault("JWT_SECRET", "test-secret")
+# 48 bytes: a aplicacao recusa segredo abaixo de 32 (ver app/core/config.py).
+os.environ.setdefault("JWT_SECRET", "segredo-de-teste-com-tamanho-suficiente-para-hs256")
 os.environ.setdefault("APP_DEBUG", "false")
 
 from collections.abc import AsyncGenerator  # noqa: E402
