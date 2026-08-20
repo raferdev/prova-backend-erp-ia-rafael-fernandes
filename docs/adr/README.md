@@ -15,7 +15,7 @@ se `arq` foi escolha ou acidente. O formato também me obriga a declarar o que e
 | [0004](0004-liveness-separado-de-readiness.md) | Separar liveness de readiness | 2026-08-19 | aceito |
 | [0005](0005-test-client-async.md) | Client de teste async desde o início | 2026-08-19 | aceito, substitui decisão anterior |
 | [0006](0006-convencoes-de-migration.md) | Fixar convenções antes da 1ª migration | 2026-08-19 | aceito |
-| [0007](0007-estrategia-de-cache.md) | Cache do catálogo e invalidação por versão | 2026-08-20 | aceito, não implementado |
+| [0007](0007-estrategia-de-cache.md) | Cache do catálogo e invalidação por versão | 2026-08-20 | aceito, implementado |
 
 ## Formato
 

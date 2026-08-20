@@ -1,6 +1,6 @@
 # ADR 0007 — Estratégia de cache e invalidação do catálogo
 
-**Data:** 2026-08-20 · **Status:** aceito, ainda não implementado
+**Data:** 2026-08-20 · **Status:** aceito e implementado
 
 ## Contexto
 
@@ -124,14 +124,51 @@ Pago:
 
 ## Como validei
 
-Ainda não. Este ADR precede a implementação de propósito, que é o que a prova pede.
+As seis asserções que listei aqui antes de escrever o código viraram testes, em
+`app/tests/test_produto_cache.py`. Rodam sem Postgres e sem Redis, com repository dublado
+e Redis em memória.
 
-O que pretendo assertar quando o CRUD existir, e que vira o registro de validação deste
-arquivo:
+```
+$ uv run pytest -q
+33 passed in 0.14s
+```
 
-1. Duas leituras iguais seguidas resultam em uma única query no Postgres.
-2. Depois de um `PUT`, a leitura seguinte devolve o valor novo, não o de cache.
-3. O `INCR` invalida listagens com filtros diferentes de uma vez só, sem `SCAN`.
-4. Consulta com filtro de estoque não grava chave nenhuma no Redis.
-5. Invalidação disparada pelo worker surte o mesmo efeito da disparada pela API.
-6. Com o Redis derrubado, leitura e escrita continuam funcionando, mais lentas.
+Além dos testes, exercitei o fluxo contra a API real, com Postgres e Redis do Compose:
+
+```
+$ curl -s -H "$A" $API/produtos/$ID | jq -r .preco
+39.90
+$ redis-cli EXISTS produto:$ID ; redis-cli GET produtos:version
+1
+(nil)
+
+$ curl -s -X PATCH -H "$A" -d '{"preco":"29.90"}' $API/produtos/$ID
+$ redis-cli EXISTS produto:$ID ; redis-cli GET produtos:version
+0
+1
+
+$ curl -s -H "$A" $API/produtos/$ID | jq -r .preco
+29.90
+```
+
+Detalhe apagado, versão incrementada, leitura seguinte com o valor novo. É exatamente o
+passo 3 do problema descrito no contexto, agora fechado.
+
+Também confirmei na API real que a consulta `?apenas_estoque_baixo=true` responde
+corretamente e **não** cria chave de listagem no Redis: a contagem de chaves
+`produtos:v*` fica igual antes e depois.
+
+### Um bug que só apareceu ao escrever o teste
+
+Minha primeira versão tratava a chave de versão ausente como valendo `1`. Só que `INCR`
+numa chave inexistente cria a chave valendo exatamente `1`. Ou seja: a primeira
+invalidação da vida do processo ia de 1 para 1 e **não invalidava nada**, e todas as
+listagens gravadas antes dela continuariam sendo servidas.
+
+Chave ausente passou a valer `0`. O teste `test_incr_invalida_listagens_de_filtros_diferentes_de_uma_vez`
+cobre isso, e a verificação manual acima mostra a versão indo de ausente para `1` com o
+efeito correto.
+
+O que me chama atenção nesse erro é que ele não quebra nada de forma visível: a API
+responde 200, os dados parecem certos e o defeito só aparece como preço desatualizado
+algum tempo depois. Sem a asserção escrita antes, eu provavelmente não teria procurado.

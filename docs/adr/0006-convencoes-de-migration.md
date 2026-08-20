@@ -44,12 +44,42 @@ prefiro assim do que ter um DSN duplicado que sai de sincronia.
 
 ## Como validei
 
+A primeira migration foi gerada e as três decisões apareceram nela.
+
+O nome do arquivo saiu legível, com a data e o slug:
+
 ```
-$ POSTGRES_HOST=localhost uv run alembic current
-INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
-INFO  [alembic.runtime.migration] Will assume transactional DDL.
+Generating alembic/versions/2026-08-20_cria_tabelas_produto_e_usuario.py ... done
 ```
 
-Conecta e reconhece o dialeto Postgres, com a URL vinda das settings e nenhum DSN no
-`alembic.ini`. A prova real das convenções de nome vem com a primeira migration gerada,
-na Parte 3.
+O autogenerate nomeou tudo pela convenção, em vez de deixar nome automático:
+
+```
+sa.CheckConstraint('preco >= 0', name=op.f('produto_preco_nao_negativo_check')),
+sa.PrimaryKeyConstraint('id', name=op.f('produto_pkey'))
+op.create_index(op.f('produto_nome_idx'), 'produto', ['nome'])
+```
+
+Nome bonito, porém, não prova reversibilidade. O que prova é o round-trip completo:
+
+```
+$ alembic upgrade head
+INFO  Running upgrade  -> 16f29a063f8e, cria tabelas produto e usuario
+$ alembic downgrade base
+INFO  Running downgrade 16f29a063f8e -> , cria tabelas produto e usuario
+$ alembic upgrade head
+INFO  Running upgrade  -> 16f29a063f8e, cria tabelas produto e usuario
+```
+
+Sobe, desce até o vazio e sobe de novo, sem erro. E as constraints existem no banco com o
+nome previsto:
+
+```
+$ psql -U erp -d erp -c "\d produto"
+Indexes:
+    "produto_pkey" PRIMARY KEY, btree (id)
+    "produto_nome_idx" btree (nome)
+Check constraints:
+    "produto_estoque_nao_negativo_check" CHECK (quantidade_estoque >= 0)
+    "produto_preco_nao_negativo_check" CHECK (preco >= 0::numeric)
+```

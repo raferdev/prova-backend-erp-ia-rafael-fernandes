@@ -41,6 +41,31 @@ devolve 503 se algum falhar. O porquê da separação está no
 
 A documentação interativa fica em `/docs`, e só em ambientes de desenvolvimento.
 
+### Usando a API
+
+Todas as rotas de `/produtos` exigem JWT. O token sai de `/auth/token`:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/auth/token \
+  -d "username=admin@erp.local&password=admin123" | jq -r .access_token)
+
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8000/produtos?nome=cabo&preco_max=50&pagina=1&tamanho=20"
+```
+
+| Rota | O que faz |
+|---|---|
+| `POST /auth/token` | autentica e devolve o JWT |
+| `GET /produtos` | lista com filtros e paginação, servida de cache |
+| `GET /produtos/{id}` | detalhe, servido de cache |
+| `POST /produtos` | cria, invalida as listagens |
+| `PATCH /produtos/{id}` | atualiza parcialmente, invalida detalhe e listagens |
+| `DELETE /produtos/{id}` | remove, invalida detalhe e listagens |
+
+Filtros disponíveis na listagem: `nome` (busca parcial), `preco_min`, `preco_max`,
+`ativo` e `apenas_estoque_baixo`. Este último compara `quantidade_estoque` com o
+`estoque_minimo` de cada produto, porque o ponto de alerta não é um número global.
+
 ### Migrações
 
 O schema é responsabilidade do Alembic. A aplicação não cria tabelas no boot, para dev e
@@ -48,6 +73,16 @@ produção seguirem o mesmo caminho.
 
 ```bash
 docker compose exec api alembic upgrade head
+docker compose exec api python -m app.core.seed
+```
+
+O seed é idempotente: rodar duas vezes não duplica nada. Ele cria cinco produtos e um
+usuário de desenvolvimento (`admin@erp.local` / `admin123`, sobrescrevíveis por
+`SEED_USUARIO_EMAIL` e `SEED_USUARIO_SENHA`). Não é usuário de produção.
+
+Para criar uma migração nova:
+
+```bash
 docker compose exec api alembic revision --autogenerate -m "cria tabela produto"
 ```
 
@@ -125,13 +160,17 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 ## Testes
 
 ```
-$ uv run pytest
-app/tests/test_health.py ..                                              [100%]
-============================== 2 passed in 0.04s ===============================
+$ uv run pytest -q
+.................................                                        [100%]
+33 passed in 0.14s
 
 $ uv run ruff check .
 All checks passed!
 ```
+
+Nenhum teste precisa de Postgres ou Redis no ar. A política de cache inteira é exercitada
+com um repository dublado e um Redis em memória (`app/tests/dubles.py`), que é o argumento
+prático a favor da camada `repositories/`.
 
 A ideia é testar regra de negócio isolada, com repository mockado, e manter os testes sem
 dependência de infra sempre que o alvo do teste não for a própria infra. O client é
@@ -146,18 +185,18 @@ prefiro que o linter cuide disso e não a minha memória.
 | Parte | Situação |
 |---|---|
 | Fundação: repo, esqueleto, Docker, health | pronto |
-| Parte 4 — Docker | Compose e Alembic prontos; falta o serviço `worker` e o seed |
-| Parte 3 — CRUD Produtos/Estoque | próximo. Começa pela estratégia de invalidação de cache |
+| Parte 3 — CRUD Produtos/Estoque | CRUD, validação, JWT, filtros, paginação e cache prontos; falta o worker |
+| Parte 4 — Docker | Compose, Alembic e seed prontos; falta o serviço `worker` |
 | Parte 2 — Assíncrono (Q4) | não iniciado |
 | Parte 5 — Desafio de IA (Q8 e Q9) | não iniciado |
 | Parte 1 — Arquitetura (teórica) | não iniciado |
 | Parte 6 — Perfil | não iniciado |
 | Parte 7 — Portfólio | não iniciado |
 
-A estratégia de cache está decidida e registrada no
-[ADR 0007](docs/adr/0007-estrategia-de-cache.md), antes de escrever o CRUD e não depois.
-Falta implementá-la, e o próprio ADR lista as seis asserções que quero ver passando para
-considerá-la validada.
+O que falta na Parte 3 é o worker de fila. Ele já tem lugar reservado: a invalidação de
+cache mora em `app/core/cache.py` justamente para o worker chamar sem passar por router,
+e o `arq` foi escolhido no [ADR 0003](docs/adr/0003-fila-com-arq.md), que segue sem seção
+de validação até a tarefa existir de verdade.
 
 ## Uso de IA
 
@@ -186,3 +225,12 @@ Uma coisa que mudei de ideia no meio do caminho está registrada no
 [ADR 0005](docs/adr/0005-test-client-async.md): comecei os testes com o client síncrono,
 que é o que a documentação do FastAPI mostra, e troquei depois de entender que isso
 quebraria os testes de integração mais adiante.
+
+Dois defeitos que apareceram na implementação do cache e que valem ser ditos, porque
+nenhum dos dois quebrava nada de forma visível. O primeiro está descrito no
+[ADR 0007](docs/adr/0007-estrategia-de-cache.md): tratar a chave de versão ausente como
+`1` fazia a primeira invalidação não invalidar nada, já que `INCR` numa chave inexistente
+também resulta em `1`. O segundo é a armadilha do FastAPI de aceitar apenas um modelo
+Pydantic por endpoint como query string — com dois, ele silenciosamente passa a exigir
+query params chamados `filtros` e `paginacao`. Os dois viraram teste
+(`test_produto_cache.py` e `test_produtos_contrato.py`) para não voltarem.
