@@ -55,3 +55,6 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Os testes precisam definir env vars antes dos imports da aplicacao (ver conftest.py).
 "app/tests/conftest.py" = ["E402"]
+# Migrations sao geradas pelo Alembic. Reformatar a mao a cada autogenerate seria briga
+# perdida, e o diff artificial esconderia a mudanca real de schema no code review.
+"alembic/versions/*.py" = ["E501"]

@@ -59,6 +59,33 @@ services:
       retries: 5
       start_period: 15s
 
+  # Mesma imagem da API, comando diferente. Worker e API compartilham models, services e o
+  # modulo de cache; imagens separadas dariam duas versoes do mesmo codigo convivendo, e a
+  # divergencia apareceria como bug de dado (ADR 0008).
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["arq", "app.workers.settings.WorkerSettings"]
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # O proprio arq publica um health check no Redis; `--check` le esse registro e sai
+      # com codigo 1 se o worker parou de bater o ponto.
+      test: ["CMD", "arq", "--check", "app.workers.settings.WorkerSettings"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
 volumes:
   postgres_data:
   redis_data:
