@@ -232,12 +232,15 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 
 ```
 $ uv run pytest -q
-........................................................................ [100%]
-100 passed in 5.52s
+126 passed in 9.63s
 
-$ uv run ruff check .
-All checks passed!
+$ uv run pytest --cov=app --cov=main --cov-report=term | tail -1
+TOTAL   2163   222   90%
 ```
+
+A CI roda isso em todo pull request, com Postgres e Redis de verdade como `services`, mais
+o build da imagem e um `docker compose up` que autentica e chama uma rota protegida. O
+workflow está em [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 A suíte tem dois tipos de teste, e a distinção foi aprendida errando.
 

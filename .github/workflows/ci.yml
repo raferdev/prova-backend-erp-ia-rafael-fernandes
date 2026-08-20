@@ -1,0 +1,154 @@
+# Pipeline de pull request.
+#
+# Duas decisões que valem explicar:
+#
+# 1. Postgres e Redis sobem como `services`, e não são simulados. Os testes de integração
+#    pulam sozinhos quando não há banco; se a CI não subisse um, o pipeline ficaria verde
+#    sem nunca ter exercitado o SQL. Por isso `CI=true` também faz esses testes falharem
+#    em vez de pular (ver `sem_banco()` em app/tests).
+#
+# 2. O job de build da imagem é separado do de testes. Eles são independentes e rodam em
+#    paralelo, então um Dockerfile quebrado aparece junto com o resultado dos testes, e
+#    não depois deles.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Um PR com vários pushes seguidos cancela as execuções anteriores: só o último commit
+# importa, e fila de CI ocupada atrasa todo mundo.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  qualidade:
+    name: Lint e formatação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format
+        run: uv run ruff format --check .
+
+  testes:
+    name: Testes
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: erp_local_password
+          POSTGRES_DB: erp
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U erp -d erp"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      CI: "true"
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp_local_password
+      POSTGRES_DB: erp
+      POSTGRES_HOST: localhost
+      REDIS_HOST: localhost
+      # Segredo descartável só para a CI. A aplicação recusa subir com menos de 32 bytes.
+      JWT_SECRET: segredo-de-ci-descartavel-com-tamanho-suficiente
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+
+      - name: Migrações
+        run: uv run alembic upgrade head
+
+      - name: Migrações revertem
+        # Sobe, desce até o vazio e sobe de novo. Migration que não reverte só é descoberta
+        # no dia em que precisa reverter, que é o pior dia possível para descobrir.
+        run: |
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
+      - name: pytest
+        run: uv run pytest -q --cov=app --cov=main --cov-report=term-missing --cov-fail-under=85
+
+  imagem:
+    name: Build da imagem
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: docker build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  compose:
+    name: Stack completa sobe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar .env
+        run: cp .env.example .env
+
+      - name: docker compose up
+        run: docker compose up -d --build --wait --wait-timeout 180
+
+      - name: Migrações e seed
+        run: |
+          docker compose exec -T api alembic upgrade head
+          docker compose exec -T api python -m app.core.seed
+
+      - name: Health e um fluxo autenticado
+        # Não basta o container subir: o teste real é a API alcançar Postgres e Redis e
+        # responder a uma rota protegida de ponta a ponta.
+        run: |
+          curl -sf http://localhost:8000/health/ready | tee /dev/stderr | grep -q '"status":"ready"'
+          TOKEN=$(curl -sf -X POST http://localhost:8000/auth/token \
+            -d "username=admin@erp.local&password=admin123" | python3 -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+          curl -sf -H "Authorization: Bearer $TOKEN" \
+            "http://localhost:8000/produtos?tamanho=1" | grep -q '"total"'
+
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose logs --tail 80
