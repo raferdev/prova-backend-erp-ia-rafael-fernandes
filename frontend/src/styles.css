@@ -1,0 +1,275 @@
+:root {
+  --fundo: #0f1115;
+  --superficie: #171a21;
+  --borda: #262b36;
+  --texto: #e6e8eb;
+  --suave: #9aa3b2;
+  --acento: #4c8dff;
+  --perigo: #ff6b6b;
+  --atencao: #ffb454;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+  color: var(--texto);
+  border-radius: 6px;
+  padding: 8px 14px;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--acento);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input {
+  font: inherit;
+  background: var(--fundo);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+input:focus {
+  outline: 2px solid var(--acento);
+  outline-offset: -1px;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+header h1 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+
+nav {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--borda);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+nav .ativa {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+nav .sair {
+  margin-left: auto;
+  color: var(--suave);
+}
+
+.login {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.login form {
+  width: 100%;
+  max-width: 360px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login h1 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0 0 6px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--suave);
+}
+
+label.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--texto);
+}
+
+.filtros {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--borda);
+}
+
+th {
+  color: var(--suave);
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+td.alerta {
+  color: var(--atencao);
+}
+
+td.id {
+  font-family: ui-monospace, monospace;
+  color: var(--suave);
+}
+
+.tag {
+  margin-left: 8px;
+  font-size: 11px;
+  border: 1px solid var(--atencao);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.total {
+  color: var(--suave);
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  color: var(--suave);
+  font-size: 13px;
+}
+
+.erro {
+  color: var(--perigo);
+  font-size: 14px;
+}
+
+.vazio,
+.nota,
+.dica,
+.explicacao {
+  color: var(--suave);
+  font-size: 13px;
+}
+
+.explicacao {
+  margin: 0 0 16px;
+}
+
+.consulta form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.consulta form input {
+  flex: 1;
+  min-width: 240px;
+}
+
+.exemplos {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 20px;
+}
+
+.exemplo {
+  font-size: 13px;
+  color: var(--suave);
+  padding: 5px 10px;
+}
+
+.resultado,
+.recusa {
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--superficie);
+}
+
+.recusa {
+  border-color: var(--atencao);
+}
+
+.interpretacao {
+  margin: 0 0 10px;
+  color: var(--acento);
+}
+
+.filtros-aplicados {
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+  overflow-x: auto;
+  margin: 0 0 10px;
+}
+
+ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.sugestoes {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+code {
+  background: var(--fundo);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}

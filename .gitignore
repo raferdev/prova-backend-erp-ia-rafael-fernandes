@@ -10,3 +10,10 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.playwright/
