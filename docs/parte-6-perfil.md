@@ -45,10 +45,30 @@ commit.
 em Go, revise idioma e não só correção". A alternativa é escrever Go com sotaque de
 TypeScript por três meses sem ninguém falar nada.
 
-## Esta prova é a evidência, não a promessa
+## Já fiz isso, e tem código público
 
-Prefiro mostrar do que afirmar. Este repositório é Python e FastAPI, que não é minha stack
-principal — meu histórico é Node, NestJS e TypeScript.
+Prefiro mostrar do que afirmar, e a evidência mais direta é de 2022: o
+[payment_processor](https://github.com/raferdev/payment_processor) é um sistema de três
+serviços em **três linguagens diferentes**, construído em uma semana — gateway em Node com
+TypeScript, serviço de análise de fraude em Python com Keras, e serviço de regras em Ruby on
+Rails.
+
+Escolhi cada uma pelo que o serviço precisava, não pelo que eu sabia melhor. Rails entrou
+porque o serviço de regras era CRUD de blacklist com validação, e Rails entrega isso mais
+rápido do que qualquer outra coisa — mesmo sendo a linguagem que eu menos dominava das três.
+
+É literalmente o cenário da pergunta, já vivido: o problema pediu uma ferramenta que eu não
+tinha, e a resposta foi aprender o suficiente para entregar bem naquele escopo.
+
+Aprendi também o custo, e isso está registrado no meu portfólio como autocrítica: três
+toolchains numa POC de uma semana foi caro, e hoje eu manteria a poliglossia só onde ela
+paga. Adotar linguagem nova não é gratuito, e reconhecer isso é parte de saber quando ela
+vale.
+
+## E esta prova é a evidência recente
+
+Este repositório é Python e FastAPI, que não é minha stack principal — meu histórico é Node,
+NestJS e TypeScript.
 
 O que a troca produziu, na prática:
 
