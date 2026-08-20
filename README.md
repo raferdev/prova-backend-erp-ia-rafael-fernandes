@@ -68,6 +68,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | `POST /produtos/{id}/estoque` | enfileira uma movimentação, responde 202 com o `job_id` |
 | `GET /produtos/{id}/movimentos` | histórico de movimentação do produto |
 | `GET /alertas` | alertas de estoque baixo, abertos por padrão |
+| `GET /integracoes/contexto-de-venda/{cliente_id}` | consulta três módulos em paralelo, degrada sem falhar |
 
 Filtros disponíveis na listagem: `nome` (busca parcial), `preco_min`, `preco_max`,
 `ativo` e `apenas_estoque_baixo`. Este último compara `quantidade_estoque` com o
@@ -132,6 +133,7 @@ app/
   models/        # modelos do ORM (tabelas)
   core/          # config, conexão de banco, Redis, segurança/JWT
   workers/       # tarefas de fila
+  integracoes/   # gateways para outros modulos do ERP (Clientes, Financeiro, Logistica)
   tests/         # espelha a estrutura acima
 main.py          # monta a aplicação e registra os routers
 docs/adr/        # registro de decisões
@@ -165,6 +167,7 @@ validar.
 | [0006](docs/adr/0006-convencoes-de-migration.md) | Fixar convenções antes da primeira migration |
 | [0007](docs/adr/0007-estrategia-de-cache.md) | Cache do catálogo, invalidação por namespace versionado |
 | [0008](docs/adr/0008-worker-de-estoque.md) | Worker de estoque: movimentação idempotente e alerta |
+| [0009](docs/adr/0009-consulta-paralela-degradacao.md) | Consulta paralela com degradação graciosa |
 
 Duas coisas que não têm ADR próprio porque não tiveram alternativa real em disputa:
 
@@ -180,8 +183,8 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 
 ```
 $ uv run pytest -q
-...............................................                          [100%]
-47 passed in 0.42s
+..........................................................               [100%]
+58 passed in 5.04s
 
 $ uv run ruff check .
 All checks passed!
@@ -211,7 +214,7 @@ prefiro que o linter cuide disso e não a minha memória.
 | Fundação: repo, esqueleto, Docker, health | pronto |
 | Parte 3 — CRUD Produtos/Estoque | pronto: CRUD, validação, JWT, filtros, paginação, cache e worker |
 | Parte 4 — Docker | pronto: quatro serviços com healthcheck, Alembic e seed |
-| Parte 2 — Assíncrono (Q4) | não iniciado |
+| Parte 2 — Assíncrono (Q4) | pronto: `asyncio.gather`, timeout por fonte, orçamento total e retry |
 | Parte 5 — Desafio de IA (Q8 e Q9) | não iniciado |
 | Parte 1 — Arquitetura (teórica) | não iniciado |
 | Parte 6 — Perfil | não iniciado |

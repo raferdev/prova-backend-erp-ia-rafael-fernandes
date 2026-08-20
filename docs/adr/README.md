@@ -17,6 +17,7 @@ se `arq` foi escolha ou acidente. O formato também me obriga a declarar o que e
 | [0006](0006-convencoes-de-migration.md) | Fixar convenções antes da 1ª migration | 2026-08-19 | aceito |
 | [0007](0007-estrategia-de-cache.md) | Cache do catálogo e invalidação por versão | 2026-08-20 | aceito, implementado |
 | [0008](0008-worker-de-estoque.md) | Worker de estoque: movimentação e alerta | 2026-08-20 | aceito, implementado |
+| [0009](0009-consulta-paralela-degradacao.md) | Consulta paralela com degradação graciosa | 2026-08-20 | aceito, implementado |
 
 ## Formato
 

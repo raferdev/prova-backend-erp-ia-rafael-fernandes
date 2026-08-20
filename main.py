@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.core.database import engine
 from app.core.fila import redis_settings
 from app.core.redis import pool
-from app.routers import auth, estoque, health, produtos
+from app.routers import auth, contexto, estoque, health, produtos
 from app.services.estoque import EstoqueInsuficiente, ProdutoInexistente
 from app.services.produto import ProdutoNaoEncontrado
 
@@ -104,3 +104,4 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(produtos.router)
 app.include_router(estoque.router)
+app.include_router(contexto.router)
