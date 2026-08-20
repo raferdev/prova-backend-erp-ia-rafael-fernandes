@@ -297,7 +297,7 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 
 ```
 $ uv run pytest -q
-129 passed in 9.58s
+131 passed in 11.10s
 
 $ uv run pytest --cov=app --cov=main --cov-report=term | tail -1
 TOTAL   2163   222   90%
