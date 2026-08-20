@@ -206,7 +206,7 @@ por domínio, está no [ADR 0001](docs/adr/0001-estrutura-em-camadas.md).
 | 1 | [Arquitetura](docs/parte-1-arquitetura.md) | bounded contexts, síncrono vs assíncrono, Saga, Redis, gateway, observabilidade, AWS |
 | 5 | [Agente de IA](docs/parte-5-agente-ia.md) | tool calling, MCP, guardrails, custo e latência |
 | 6 | [Perfil](docs/parte-6-perfil.md) | o cenário da frente em Go |
-| 7 | [Portfólio](docs/parte-7-portfolio.md) | projeto representativo e o que eu faria diferente |
+| 7 | [Portfólio](docs/parte-7-portfolio.md) | `payment_processor` e o que eu faria diferente hoje |
 
 A Parte 3 teórica está distribuída pelos ADRs, que é onde cada decisão de implementação foi
 tomada e justificada.
@@ -286,7 +286,7 @@ prefiro que o linter cuide disso e não a minha memória.
 | Parte 5 — Desafio de IA (Q8 e Q9) | pronto: parser determinístico, [design do agente](docs/parte-5-agente-ia.md) e servidor MCP funcional |
 | Parte 1 — Arquitetura (teórica) | pronto: [docs/parte-1-arquitetura.md](docs/parte-1-arquitetura.md) |
 | Parte 6 — Perfil | pronto: [docs/parte-6-perfil.md](docs/parte-6-perfil.md) |
-| Parte 7 — Portfólio | **incompleto**: estrutura pronta, faltam os links e o projeto |
+| Parte 7 — Portfólio | pronto: [docs/parte-7-portfolio.md](docs/parte-7-portfolio.md) |
 
 O que ficou de fora por escolha, e não por falta de tempo: o lock distribuído para oversell
 na reserva de pedido. Ele pertence ao módulo de Pedidos, não ao de Estoque, e está anotado
