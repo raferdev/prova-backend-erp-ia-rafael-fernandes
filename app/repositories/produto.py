@@ -7,7 +7,7 @@ filtrar em laco Python funciona com dados de teste e derrete com catalogo real.
 import uuid
 from typing import Any
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.produto import Produto
@@ -72,3 +72,54 @@ class ProdutoRepository:
     async def remover(self, produto: Produto) -> None:
         await self.session.delete(produto)
         await self.session.commit()
+
+    async def ajustar_estoque(self, produto_id: uuid.UUID, delta: int) -> Produto | None:
+        """Soma `delta` ao saldo em um UPDATE atomico. Devolve o produto ja atualizado.
+
+        Deliberadamente NAO faco ler-somar-gravar. Com dois workers concorrentes, os dois
+        leriam 10, os dois gravariam 9, e duas baixas virariam uma -- perda de atualizacao
+        silenciosa, o pior tipo. Aqui quem resolve o conflito e o proprio Postgres.
+
+        Saldo negativo nao e tratado aqui: a CheckConstraint `produto_estoque_nao_negativo`
+        faz a transacao falhar, e o service traduz isso para erro de dominio. Deixar a
+        garantia no banco cobre tambem quem escrever por fora desta funcao.
+        """
+        comando = (
+            update(Produto)
+            .where(Produto.id == produto_id)
+            .values(quantidade_estoque=Produto.quantidade_estoque + delta)
+            .returning(Produto)
+        )
+        resultado = await self.session.execute(comando)
+        produto = resultado.scalar_one_or_none()
+        if produto is None:
+            await self.session.rollback()
+            return None
+        await self.session.commit()
+        return produto
+
+    async def listar_com_estoque_baixo(self, limite: int = 500) -> list[Produto]:
+        """Produtos em que o saldo caiu ate o limiar do proprio produto.
+
+        Usada pela varredura periodica. Com catalogo grande isto vira varredura paginada
+        ou incremental por `atualizado_em`; no escopo atual, uma query so resolve.
+        """
+        consulta = (
+            select(Produto)
+            .where(
+                Produto.ativo.is_(True),
+                Produto.quantidade_estoque <= Produto.estoque_minimo,
+            )
+            .order_by(Produto.nome)
+            .limit(limite)
+        )
+        resultado = await self.session.execute(consulta)
+        return list(resultado.scalars().all())
+
+    async def listar_com_estoque_saudavel(self, limite: int = 500) -> list[Produto]:
+        """O complemento: usada para resolver alertas de produtos que se recuperaram."""
+        consulta = (
+            select(Produto).where(Produto.quantidade_estoque > Produto.estoque_minimo).limit(limite)
+        )
+        resultado = await self.session.execute(consulta)
+        return list(resultado.scalars().all())

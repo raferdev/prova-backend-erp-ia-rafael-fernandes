@@ -8,15 +8,19 @@ Responsabilidade deste arquivo: montar a aplicacao e registrar routers. Nenhuma 
 de negocio mora aqui.
 """
 
+import logging
 from contextlib import asynccontextmanager
 
+from arq import create_pool
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.core.database import engine
+from app.core.fila import redis_settings
 from app.core.redis import pool
-from app.routers import auth, health, produtos
+from app.routers import auth, estoque, health, produtos
+from app.services.estoque import EstoqueInsuficiente, ProdutoInexistente
 from app.services.produto import ProdutoNaoEncontrado
 
 settings = get_settings()
@@ -24,12 +28,25 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Ciclo de vida: hoje so garante o fechamento limpo dos pools no shutdown.
+    """Abre o pool da fila no boot e fecha tudo no shutdown.
 
-    Nao criamos tabelas aqui de proposito -- schema e responsabilidade do Alembic,
-    para que dev e producao sigam o mesmo caminho de migracao.
+    Nao criamos tabelas aqui de proposito -- schema e responsabilidade do Alembic, para que
+    dev e producao sigam o mesmo caminho de migracao.
+
+    A falha ao conectar na fila e tolerada: a API sobe e continua servindo leitura, e o
+    endpoint de ajuste responde 503. Derrubar a API inteira porque a fila esta fora seria
+    transformar uma degradacao parcial em indisponibilidade total.
     """
+    try:
+        app.state.fila = await create_pool(redis_settings())
+    except Exception:  # noqa: BLE001
+        logging.getLogger(__name__).warning("fila indisponivel no boot", exc_info=True)
+        app.state.fila = None
+
     yield
+
+    if app.state.fila is not None:
+        await app.state.fila.aclose()
     await engine.dispose()
     await pool.aclose()
 
@@ -66,6 +83,24 @@ async def produto_nao_encontrado(request: Request, exc: ProdutoNaoEncontrado) ->
     )
 
 
+@app.exception_handler(EstoqueInsuficiente)
+async def estoque_insuficiente(request: Request, exc: EstoqueInsuficiente) -> JSONResponse:
+    """409 e nao 400: o pedido esta bem formado, o estado atual e que nao permite atende-lo."""
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"detail": f"estoque insuficiente para o produto {exc}"},
+    )
+
+
+@app.exception_handler(ProdutoInexistente)
+async def produto_inexistente(request: Request, exc: ProdutoInexistente) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": f"produto {exc} nao encontrado"},
+    )
+
+
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(produtos.router)
+app.include_router(estoque.router)
