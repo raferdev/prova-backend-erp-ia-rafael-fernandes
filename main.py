@@ -10,12 +10,14 @@ de negocio mora aqui.
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.redis import pool
-from app.routers import health
+from app.routers import auth, health, produtos
+from app.services.produto import ProdutoNaoEncontrado
 
 settings = get_settings()
 
@@ -49,4 +51,21 @@ if settings.app_env not in SHOW_DOCS_ENVIRONMENTS:
 
 app = FastAPI(**app_configs)
 
+
+@app.exception_handler(ProdutoNaoEncontrado)
+async def produto_nao_encontrado(request: Request, exc: ProdutoNaoEncontrado) -> JSONResponse:
+    """Traduz o erro de dominio para HTTP em um lugar so.
+
+    O service levanta uma excecao de negocio e nao conhece status code; o router nao
+    precisa repetir try/except em cada rota. Se amanha o mesmo service for chamado por um
+    worker, a excecao continua fazendo sentido fora do mundo HTTP.
+    """
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"detail": f"produto {exc} nao encontrado"},
+    )
+
+
 app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(produtos.router)
