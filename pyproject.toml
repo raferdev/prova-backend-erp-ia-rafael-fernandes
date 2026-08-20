@@ -18,6 +18,7 @@ dependencies = [
     "httpx>=0.28.0",
     # OAuth2PasswordRequestForm recebe form-urlencoded, que o Starlette so parseia com isto.
     "python-multipart>=0.0.20",
+    "mcp>=2.0.0",
 ]
 
 [dependency-groups]
