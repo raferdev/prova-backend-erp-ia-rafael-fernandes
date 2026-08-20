@@ -17,6 +17,8 @@ import logging
 import uuid
 from typing import Any
 
+from sqlalchemy.exc import ProgrammingError
+
 from app.core.database import SessionLocal
 from app.repositories.alerta import AlertaRepository
 from app.repositories.movimento import MovimentoRepository
@@ -24,6 +26,9 @@ from app.repositories.produto import ProdutoRepository
 from app.services.estoque import EstoqueService
 
 logger = logging.getLogger(__name__)
+
+# 42P01 = undefined_table no Postgres.
+TABELA_INEXISTENTE = "42P01"
 
 
 async def ajustar_estoque(
@@ -66,8 +71,30 @@ async def ajustar_estoque(
     }
 
 
-async def verificar_estoque_baixo(ctx: dict[str, Any]) -> dict[str, int]:
-    """Varredura completa do catalogo. E a rede de seguranca do caminho por evento."""
+async def verificar_estoque_baixo(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Varredura completa do catalogo. E a rede de seguranca do caminho por evento.
+
+    Tolera o schema ainda nao migrado. Isso nao e hipotese: num clone novo, seguindo o
+    README, o `docker compose up` sobe o worker antes de alguem rodar `alembic upgrade
+    head`, e a varredura de startup batia numa tabela inexistente. A tarefa se recuperava
+    sozinha no ciclo seguinte, mas cuspia um traceback como primeira coisa que a pessoa via.
+
+    Trato so o 42P01 (tabela inexistente), e nao qualquer ProgrammingError: SQL quebrado
+    tem que continuar estourando alto.
+    """
+    try:
+        return await _varrer(ctx)
+    except ProgrammingError as erro:
+        if getattr(erro.orig, "sqlstate", None) != TABELA_INEXISTENTE:
+            raise
+        logger.warning(
+            "schema ainda nao migrado; a varredura tenta de novo no proximo ciclo. "
+            "Rode: docker compose exec api alembic upgrade head"
+        )
+        return {"abertos": 0, "resolvidos": 0, "ja_abertos": 0, "adiado": True}
+
+
+async def _varrer(ctx: dict[str, Any]) -> dict[str, int]:
     async with SessionLocal() as session:
         servico = EstoqueService(
             ProdutoRepository(session),
