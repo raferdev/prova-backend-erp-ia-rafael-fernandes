@@ -4,7 +4,9 @@ O `alembic/env.py` importa este pacote. Sem estes imports o autogenerate nao enx
 tabela nenhuma e gera uma migration vazia -- ou, pior, um DROP de tudo que ja existe.
 """
 
+from app.models.alerta import AlertaEstoque, StatusAlerta
+from app.models.movimento import MovimentoEstoque
 from app.models.produto import Produto
 from app.models.usuario import Usuario
 
-__all__ = ["Produto", "Usuario"]
+__all__ = ["AlertaEstoque", "MovimentoEstoque", "Produto", "StatusAlerta", "Usuario"]
