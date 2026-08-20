@@ -7,8 +7,10 @@ Projeto em andamento. O que já está pronto e o que falta está em
 [Progresso](#progresso), e o raciocínio por trás de cada escolha está em
 [`docs/adr/`](docs/adr/).
 
-A consulta do catálogo em linguagem natural está em `POST /consultas/produtos`, com parser
-determinístico e sem LLM em runtime.
+O desafio de IA tem duas metades: a consulta em linguagem natural está implementada em
+`POST /consultas/produtos` (parser determinístico, sem LLM em runtime), e o design de
+agente com tool calling, MCP e guardrails está em
+[`docs/parte-5-agente-ia.md`](docs/parte-5-agente-ia.md).
 
 ## Como rodar
 
