@@ -1,8 +1,15 @@
-# Parte 1 — Arquitetura de microsserviços para o ERP
+# Parte 1 — Arquitetura e organização
 
 Sempre que possível, ligo a decisão ao código deste repositório. Arquitetura descrita no
 abstrato é fácil de defender; a que já passou por implementação tem cicatriz, e as
 cicatrizes estão marcadas ao longo do texto.
+
+- [Questão 1 — arquitetura de microsserviços](#questão-1--arquitetura-de-microsserviços)
+- [Questão 2 — estrutura de pastas e camadas](#questão-2--estrutura-de-pastas-e-camadas)
+
+---
+
+# Questão 1 — arquitetura de microsserviços
 
 ---
 
@@ -254,3 +261,107 @@ confiar na contagem de testes: o SQL estava em 26%.
 **Definição duplicada de um conceito de negócio diverge sozinha.** "Estoque baixo" existia
 em dois lugares e as duas versões discordavam sobre produto inativo. Nenhuma revisão de
 código pegou; um teste de integração pegou. Hoje há uma implementação só.
+
+---
+
+# Questão 2 — estrutura de pastas e camadas
+
+Esta é a estrutura real deste repositório, e não uma proposta. Coerência entre o que está
+escrito e o que está no código é critério da prova, então descrevo o que existe.
+
+```
+app/
+  routers/       # endpoints HTTP
+  services/      # regra de negócio
+  repositories/  # único ponto que fala com o banco
+  schemas/       # modelos Pydantic (contrato da API)
+  models/        # modelos do ORM (tabelas)
+  core/          # config, conexão de banco, Redis, segurança/JWT, cache, fila
+  workers/       # tarefas de fila
+  integracoes/   # gateways para outros bounded contexts
+  mcp/           # servidor MCP
+  tests/
+main.py          # monta a aplicação e registra os routers
+```
+
+O fluxo é sempre **`router → service → repository`**, sem atalhos.
+
+## Por que cada camada existe
+
+**`routers/`** traduz HTTP em chamada de método e volta. Ele não monta SQL, não conhece
+cache e não decide regra. O teste disso é concreto: se amanhã o mesmo CRUD precisasse ser
+exposto por mensageria ou CLI, esta seria a única pasta descartada.
+
+**`services/`** é onde mora a decisão de negócio. Ele levanta exceção de domínio
+(`EstoqueInsuficiente`) e não sabe o que é status code — a tradução para HTTP acontece num
+handler único em `main.py`. Isso não é purismo: o mesmo service é chamado pelo worker de
+fila, que não tem request nenhum, e uma exceção que só faz sentido em HTTP quebraria ali.
+
+**`repositories/`** concentra o SQL. É a camada que mais dá trabalho justificar, porque
+uma referência conhecida da comunidade (`fastapi-best-practices`) coloca SQL dentro do
+service. Mantive separado, e o retorno apareceu na prática: a política de cache inteira e a
+regra de estoque são testadas com repository dublado, sem Postgres no ar, em milissegundos.
+
+**`schemas/` separado de `models/`** é a separação que eu mais defendo. O contrato público
+da API não é o schema do banco. Fundir os dois — que é o que o SQLModel faz — significa que
+toda coluna nova vaza para a resposta por padrão; num ERP é assim que custo de compra
+aparece num endpoint de catálogo.
+
+**`core/`** guarda o que atravessa tudo e não pertence a um domínio: configuração validada
+no boot, conexões, JWT, cache, fila. A invalidação de cache mora aqui de propósito, e não
+no router, porque o worker também precisa invalidar e ele não passa por router nenhum.
+
+**`workers/`** e **`integracoes/`** são entrypoints e saídas alternativos: um consome fila,
+o outro fala com serviços de outros bounded contexts. Nenhum dos dois é persistência nem
+regra, então nenhum caberia em `repositories/` ou `services/` sem fazer a camada mentir
+sobre o que ela é.
+
+**`tests/`** espelha a estrutura, com uma divisão que aprendi errando: testes rápidos com
+dublê e testes de integração contra Postgres real, em arquivos separados.
+
+## Como isso ajuda em testabilidade
+
+O argumento fica concreto olhando o que a estrutura permite:
+
+- **Regra de negócio sem infraestrutura.** `ProdutoService` recebe repository e Redis por
+  construtor, então a suíte exercita a política de cache inteira com um Redis em memória e
+  um repository dublado. Onze testes, 0,1 s.
+- **Contrato testado sem subir servidor.** `httpx.AsyncClient` sobre `ASGITransport` fala
+  direto com o app.
+- **Falha de dependência simulável.** Trocar `get_session` por um objeto que levanta
+  exceção é uma linha, e é assim que o teste de readiness degradado é determinístico.
+
+E onde a estrutura **não** ajuda, que é honesto dizer: dublê não prova garantia de banco.
+Meu `ON CONFLICT` estava escrito de um jeito que o Postgres recusa e o dublê passava
+tranquilo, porque ele reimplementa o invariante em Python — validava a minha intenção, não
+o meu SQL. Foi o que me levou a separar testes de integração.
+
+## Como isso ajuda em manutenção
+
+Cada camada tem **um** motivo para mudar. Trocar de banco mexe em `repositories/`. Mudar o
+contrato da API mexe em `schemas/`. Regra nova mexe em `services/`. Quando o motivo da
+mudança e o lugar da mudança coincidem, revisão de código fica curta e o risco de efeito
+colateral cai.
+
+## Princípios que inspiraram
+
+**SOLID**, principalmente dois. *Single Responsibility* é o parágrafo acima: uma razão para
+mudar por camada. *Dependency Inversion* é o que faz o service depender de uma abstração de
+repository e não da sessão do SQLAlchemy — sem isso, testar regra exigiria banco.
+
+**Clean Architecture**, na ideia de que a regra de negócio não sabe de onde o dado veio.
+Infra é detalhe e detalhe fica na borda. O sinal de que isso está valendo neste projeto é
+que o `EstoqueService` funciona igual chamado por HTTP e por worker de fila.
+
+**DDD leve**, na divisão por bounded context da Questão 1 e no vocabulário: o código fala
+`estoque_minimo`, `alerta aberto`, `movimento`, e não `entity`, `manager`, `helper`. Digo
+"leve" de propósito: não uso agregados, value objects nem repositórios por raiz de
+agregado, porque neste porte seria cerimônia sem retorno.
+
+**O que eu conscientemente não segui:** a recomendação de organizar por domínio
+(`app/produtos/`, `app/pedidos/`), que é o que o `fastapi-best-practices` defende. O
+critério dele é porte — a frase completa diz que organizar por tipo "works well for
+microservices or smaller projects", e este é um bounded context só. Está detalhado no
+[ADR 0001](adr/0001-estrutura-em-camadas.md). Quando este serviço passar a ter vários
+domínios no mesmo processo, a migração é mecânica: as camadas já estão separadas, muda só o
+eixo de agrupamento.
