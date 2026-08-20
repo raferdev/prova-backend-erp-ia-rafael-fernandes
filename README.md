@@ -7,6 +7,9 @@ Projeto em andamento. O que já está pronto e o que falta está em
 [Progresso](#progresso), e o raciocínio por trás de cada escolha está em
 [`docs/adr/`](docs/adr/).
 
+A consulta do catálogo em linguagem natural está em `POST /consultas/produtos`, com parser
+determinístico e sem LLM em runtime.
+
 ## Como rodar
 
 Precisa de Docker e Docker Compose.
@@ -69,6 +72,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 | `GET /produtos/{id}/movimentos` | histórico de movimentação do produto |
 | `GET /alertas` | alertas de estoque baixo, abertos por padrão |
 | `GET /integracoes/contexto-de-venda/{cliente_id}` | consulta três módulos em paralelo, degrada sem falhar |
+| `POST /consultas/produtos` | pergunta em linguagem natural sobre o catálogo, sem LLM |
 
 Filtros disponíveis na listagem: `nome` (busca parcial), `preco_min`, `preco_max`,
 `ativo` e `apenas_estoque_baixo`. Este último compara `quantidade_estoque` com o
@@ -183,8 +187,8 @@ Nenhum segredo é commitado, e o `.env.example` documenta as chaves.
 
 ```
 $ uv run pytest -q
-..........................................................               [100%]
-58 passed in 5.04s
+........................................................................ [100%]
+80 passed in 5.00s
 
 $ uv run ruff check .
 All checks passed!
@@ -215,7 +219,7 @@ prefiro que o linter cuide disso e não a minha memória.
 | Parte 3 — CRUD Produtos/Estoque | pronto: CRUD, validação, JWT, filtros, paginação, cache e worker |
 | Parte 4 — Docker | pronto: quatro serviços com healthcheck, Alembic e seed |
 | Parte 2 — Assíncrono (Q4) | pronto: `asyncio.gather`, timeout por fonte, orçamento total e retry |
-| Parte 5 — Desafio de IA (Q8 e Q9) | não iniciado |
+| Parte 5 — Desafio de IA (Q8 e Q9) | pronto: parser determinístico + [design do agente](docs/parte-5-agente-ia.md) |
 | Parte 1 — Arquitetura (teórica) | não iniciado |
 | Parte 6 — Perfil | não iniciado |
 | Parte 7 — Portfólio | não iniciado |

@@ -20,6 +20,8 @@ class FiltrosProduto(CustomModel):
         default=False,
         description="Traz so produtos com quantidade menor ou igual ao estoque minimo",
     )
+    estoque_min: int | None = Field(default=None, ge=0)
+    estoque_max: int | None = Field(default=None, ge=0)
     ativo: bool | None = None
 
     def toca_estoque(self) -> bool:
@@ -28,8 +30,15 @@ class FiltrosProduto(CustomModel):
         Estoque e o dado volatil do catalogo. Um alerta de estoque baixo respondido a
         partir de cache de 60 segundos atras nao serve para nada -- e justamente o alerta
         que precisa ser verdadeiro agora.
+
+        Os filtros numericos de estoque entram na mesma regra: "produtos com menos de 10
+        unidades" tem exatamente o mesmo problema de validade que "estoque baixo".
         """
-        return self.apenas_estoque_baixo
+        return (
+            self.apenas_estoque_baixo
+            or self.estoque_min is not None
+            or self.estoque_max is not None
+        )
 
 
 class Paginacao(CustomModel):

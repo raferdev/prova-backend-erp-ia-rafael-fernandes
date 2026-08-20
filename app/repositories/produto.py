@@ -29,6 +29,10 @@ class ProdutoRepository:
         if filtros.apenas_estoque_baixo:
             # Comparacao entre colunas: o limiar e por produto, nao um numero fixo.
             consulta = consulta.where(Produto.quantidade_estoque <= Produto.estoque_minimo)
+        if filtros.estoque_min is not None:
+            consulta = consulta.where(Produto.quantidade_estoque >= filtros.estoque_min)
+        if filtros.estoque_max is not None:
+            consulta = consulta.where(Produto.quantidade_estoque <= filtros.estoque_max)
         if filtros.ativo is not None:
             consulta = consulta.where(Produto.ativo.is_(filtros.ativo))
         return consulta

@@ -15,6 +15,8 @@ PARAMETROS_ESPERADOS = {
     "preco_min",
     "preco_max",
     "apenas_estoque_baixo",
+    "estoque_min",
+    "estoque_max",
     "ativo",
     "pagina",
     "tamanho",
