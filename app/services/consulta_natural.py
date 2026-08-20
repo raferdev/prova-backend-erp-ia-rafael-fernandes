@@ -8,9 +8,11 @@ que a API REST recebe por query string, e vai para o mesmo `ProdutoRepository`. 
 implementação de consulta, dois jeitos de chegar nela.
 """
 
+from typing import Any
+
 from app.repositories.produto import ProdutoRepository
 from app.schemas.consulta import RespostaConsultaNatural
-from app.schemas.filtros import Paginacao
+from app.schemas.filtros import FiltrosProduto, Paginacao
 from app.schemas.produto import ProdutoResponse
 from app.services.parser_consulta import interpretar
 
@@ -43,13 +45,29 @@ class ConsultaNaturalService:
             pergunta=pergunta,
             entendida=True,
             interpretacao=leitura.explicacao,
-            # `exclude_defaults` e não `exclude_none`: o segundo deixaria passar
-            # `apenas_estoque_baixo: false`, que não foi pedido e polui a auditoria com um
-            # filtro que não existe. A resposta mostra só o que a pergunta de fato pediu.
-            filtros_aplicados=leitura.filtros.model_dump(mode="json", exclude_defaults=True),
+            filtros_aplicados=self._so_o_que_foi_pedido(leitura.filtros),
             total=total,
             # Numa contagem, devolver a lista seria ruído: a pergunta foi "quantos".
             itens=None
             if leitura.intencao == "contar"
             else [ProdutoResponse.model_validate(i) for i in itens],
         )
+
+    @staticmethod
+    def _so_o_que_foi_pedido(filtros: FiltrosProduto) -> dict[str, Any]:
+        """Devolve apenas os filtros que o parser realmente definiu.
+
+        `model_fields_set` e nao `exclude_defaults`, por dois motivos.
+
+        O semantico: quero mostrar o que a pergunta pediu, e `fields_set` e exatamente
+        isso. `apenas_estoque_baixo: false` num filtro de preco nao foi pedido -- e ruido
+        que atrapalha justamente quem esta conferindo se a interpretacao bateu.
+
+        E o pratico: `exclude_defaults` nao funciona nos nossos schemas. O
+        `@field_serializer("*")` do `CustomModel` faz o Pydantic devolver todos os campos,
+        inclusive os que valem o default. Verificado lado a lado com um BaseModel puro, que
+        exclui corretamente. Nao e bug do Pydantic e sim efeito do serializer curinga, e
+        `fields_set` e imune a ele.
+        """
+        despejo = filtros.model_dump(mode="json")
+        return {campo: despejo[campo] for campo in filtros.model_fields_set}
