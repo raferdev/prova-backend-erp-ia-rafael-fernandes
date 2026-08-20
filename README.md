@@ -248,17 +248,23 @@ Comparei essa estrutura com o template oficial do FastAPI e com o
 `fastapi-best-practices` antes de fechar. O raciocínio, incluindo por que não organizei
 por domínio, está no [ADR 0001](docs/adr/0001-estrutura-em-camadas.md).
 
-## Respostas teóricas
+## Onde está cada questão
 
-| Parte | Onde | Sobre |
-|---|---|---|
-| 1 | [Arquitetura](docs/parte-1-arquitetura.md) | bounded contexts, síncrono vs assíncrono, Saga, Redis, gateway, observabilidade, AWS |
-| 5 | [Agente de IA](docs/parte-5-agente-ia.md) | tool calling, MCP, guardrails, custo e latência |
-| 6 | [Perfil](docs/parte-6-perfil.md) | o cenário da frente em Go |
-| 7 | [Portfólio](docs/parte-7-portfolio.md) | `payment_processor` e o que eu faria diferente hoje |
+| Questão | Onde |
+|---|---|
+| **1** — arquitetura de microsserviços | [Parte 1](docs/parte-1-arquitetura.md#questão-1--arquitetura-de-microsserviços) |
+| **2** — estrutura de pastas, camadas e princípios | [Parte 1](docs/parte-1-arquitetura.md#questão-2--estrutura-de-pastas-e-camadas) |
+| **3** — asyncio × threading × multiprocessing | [Parte 2](docs/parte-2-concorrencia.md) |
+| **4** — endpoint com 3 fontes em paralelo | [Parte 2](docs/parte-2-concorrencia.md) · `GET /integracoes/contexto-de-venda/{id}` |
+| **6** — CRUD de Produtos e Estoque | [Usando a API](#usando-a-api) · ADRs [0002](docs/adr/0002-persistencia-sqlalchemy-async.md), [0007](docs/adr/0007-estrategia-de-cache.md), [0008](docs/adr/0008-worker-de-estoque.md) |
+| **7** — Docker e orquestração | [Como rodar](#como-rodar) · [`docker-compose.yml`](docker-compose.yml) |
+| **8** — pergunta em linguagem natural | `POST /consultas/produtos` · [`parser_consulta.py`](app/services/parser_consulta.py) |
+| **9** — agente, MCP e guardrails | [Parte 5](docs/parte-5-agente-ia.md), com [servidor MCP](#servidor-mcp) implementado |
+| **10** — a frente em Go | [Parte 6](docs/parte-6-perfil.md) |
+| **11** — portfólio | [Parte 7](docs/parte-7-portfolio.md) |
 
-A Parte 3 teórica está distribuída pelos ADRs, que é onde cada decisão de implementação foi
-tomada e justificada.
+As decisões de implementação da Parte 3 estão nos [ADRs](docs/adr/), cada um com o
+contexto, as alternativas descartadas e a saída do comando que validou a escolha.
 
 Na Parte 1 eu amarro cada afirmação a código deste repositório sempre que existe, e digo
 explicitamente quando não existe — o lock distribuído do oversell, por exemplo, está
